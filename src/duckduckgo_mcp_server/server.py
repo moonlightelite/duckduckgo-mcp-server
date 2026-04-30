@@ -1,4 +1,7 @@
-from mcp.server.fastmcp import FastMCP, Context
+import uvicorn
+from fastmcp.server.context import Context
+from fastmcp import FastMCP
+from starlette.middleware.cors import CORSMiddleware
 import httpx
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Any
@@ -431,9 +434,9 @@ def main():
     parser = argparse.ArgumentParser(description="DuckDuckGo MCP Server")
     parser.add_argument(
         "--transport",
-        choices=["stdio", "sse", "streamable-http"],
-        default="stdio",
-        help="Transport protocol to use (default: stdio)",
+        choices=["stdio", "sse", "streamable-http", "http"],
+        default="http",
+        help="Transport protocol to use (default: http)",
     )
     parser.add_argument(
         "--fetch-backend",
@@ -473,8 +476,19 @@ def main():
     print(f"  Fetch backend: {fetcher.default_backend}", file=sys.stderr)
     if args.transport in ("sse", "streamable-http"):
         print(f"  Bind address: {mcp.settings.host}:{mcp.settings.port}", file=sys.stderr)
-    mcp.run(transport=args.transport)
+    #mcp.run(transport=args.transport)
+    #mcp.run(transport=args.transport, host="0.0.0.0", port=8080)
 
+    app = mcp.http_app(path="/mcp")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],         # Adjust as needed
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["mcp-session-id"]  # Fixes "Missing session ID" in MCP Inspector
+    )
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
     main()
